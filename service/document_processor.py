@@ -3,12 +3,11 @@ import os
 
 from langchain_community.document_loaders import (
     UnstructuredMarkdownLoader,
-    UnstructuredPDFLoader,
-    UnstructuredWordDocumentLoader,
+    UnstructuredWordDocumentLoader, PyPDFLoader,
 )
 from langchain_text_splitters import MarkdownTextSplitter, RecursiveCharacterTextSplitter
-from rapidocr_onnxruntime import RapidOCR
 from langchain_unstructured import UnstructuredLoader
+from rapidocr_onnxruntime import RapidOCR
 
 # 配置日志记录
 logging.basicConfig(level=logging.INFO)
@@ -84,7 +83,7 @@ def load_pdf_file(file_path: str) -> list:
         logger.info("加载PDF文件：%s", file_path)
         # 设置 OCR 相关环境变量
         os.environ['OCR_AGENT'] = 'unstructured.partition.utils.ocr_models.tesseract_ocr.OCRAgentTesseract'
-        loader = UnstructuredPDFLoader(file_path=file_path, mode="elements", strategy="hi_res")
+        loader = PyPDFLoader(file_path=file_path)
         docs = loader.load()
         return docs
     except Exception as e:

@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from langchain.chains import create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -11,28 +12,27 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def initialize_retrieval_chain(vector_store, llm, top_k: int = 5):
-    """
-    创建检索链，包含历史上下文的问答系统。
-
-    :param vector_store: 向量存储对象
-    :param llm: 使用的语言模型
-    :param top_k: 检索的最大文档数，默认为5
-    :return: 完整的检索链对象
-    """
-    if not vector_store:
-        logger.error("向量存储为空，无法创建检索链。")
-        raise ValueError("向量存储不能为空。")
-
+def initialize_retrieval_chain(vector_store, llm,
+                               top_k: int, file_path: Optional[str], user_id: str, session_id: str, ):
     try:
         logger.info("初始化检索链...")
+        # 构建检索过滤条件
+        filter_conditions = [{"user_id": user_id}]
 
-        # 配置文档检索器
-        retriever = vector_store.as_retriever()
+        if session_id:
+            filter_conditions.append({"session_id": session_id})
+        if file_path:
+            filter_conditions.append({"file_path": file_path})
+
+        # 使用 $and 组合所有条件
+        filter_condition = {"$and": filter_conditions} if len(filter_conditions) > 1 else filter_conditions[0]
+
+        # 仅检索符合条件的文档
+        retriever = vector_store.as_retriever(search_kwargs={"filter": filter_condition})
 
         # 1. 系统提示 - 检索上下文问答
         system_prompt = """
-        你是一个用于问答任务的助手。  \
+        你是河南移动AI灵犀助手。  \
         使用以下检索到的上下文或对话历史来回答问题。\  
         如果你不知道答案，请直接说你不知道。  \
         回答必须使用markdown格式，并且保持回答简洁。\n\n{context}
@@ -67,7 +67,7 @@ def initialize_retrieval_chain(vector_store, llm, top_k: int = 5):
         # 创建带历史上下文的检索器
         history_chain = create_history_aware_retriever(
             llm=llm,
-            retriever=retriever.bind(k=top_k),
+            retriever=retriever,
             prompt=retriever_history_prompt
         )
         logger.info("历史上下文检索器初始化成功，top_k=%d", top_k)

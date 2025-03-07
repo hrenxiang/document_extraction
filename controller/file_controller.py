@@ -5,6 +5,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from starlette.responses import FileResponse
 
 from core.base.exception import ResponseModel
+from service.vector_store import upload_file
 
 # 创建一个路由组
 file_router = APIRouter(prefix="/file")
@@ -12,8 +13,9 @@ file_router = APIRouter(prefix="/file")
 
 # 上传文件到服务器本地
 @file_router.post("/upload/", summary="上传文件接口")
-async def upload_file(file: UploadFile = File(...),
-                      session_id: str = Form(...)):
+async def upload(file: UploadFile = File(...),
+                 user_id: str = Form(...),
+                 session_id: str = Form(...)):
     content = await file.read()  # 读取整个文件内容
     max_size = 10 * 1024 * 1024  # 例如：2KB
     if len(content) > max_size:
@@ -25,10 +27,14 @@ async def upload_file(file: UploadFile = File(...),
     # 创建上传目录，如果不存在的话
     os.makedirs(os.path.dirname(upload_path), exist_ok=True)
 
-    # Open the file in write-binary mode
-    with open(upload_path, "wb") as buffer:
-        # Ensure that file.file is treated as BinaryIO (a file-like object that supports write)
-        shutil.copyfileobj(file.file, buffer)  # type: ignore
+    # 重置文件指针到开头，防止已经被读取过
+    file.file.seek(0)
+
+    # 使用 'w' 模式打开文件，会清空原文件内容
+    with open(upload_path, 'w', encoding='utf-8') as fp:
+        print('hello world', file=fp)
+
+    upload_file(file_path=upload_path, user_id=user_id, session_id=session_id)
 
     return ResponseModel(message=f"File {file.filename} uploaded successfully!", data=upload_path)
 
